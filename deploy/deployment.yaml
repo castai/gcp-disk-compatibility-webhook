@@ -1,0 +1,55 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: disk-compatibility-webhook
+  namespace: disk-compatibility-webhook
+  labels:
+    app: disk-compatibility-webhook
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: disk-compatibility-webhook
+  template:
+    metadata:
+      labels:
+        app: disk-compatibility-webhook
+    spec:
+      serviceAccountName: disk-compatibility-webhook
+      containers:
+      - name: webhook
+        image: disk-compatibility-webhook:latest
+        imagePullPolicy: IfNotPresent
+        ports:
+        - containerPort: 8443
+          name: webhook
+          protocol: TCP
+        volumeMounts:
+        - name: webhook-certs
+          mountPath: /etc/webhook/certs
+          readOnly: true
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: 8443
+            scheme: HTTPS
+          initialDelaySeconds: 10
+          periodSeconds: 10
+        readinessProbe:
+          httpGet:
+            path: /health
+            port: 8443
+            scheme: HTTPS
+          initialDelaySeconds: 5
+          periodSeconds: 5
+        resources:
+          requests:
+            memory: "64Mi"
+            cpu: "100m"
+          limits:
+            memory: "128Mi"
+            cpu: "200m"
+      volumes:
+      - name: webhook-certs
+        secret:
+          secretName: disk-compatibility-webhook-certs

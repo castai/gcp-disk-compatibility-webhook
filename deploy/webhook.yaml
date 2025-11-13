@@ -1,0 +1,29 @@
+apiVersion: admissionregistration.k8s.io/v1
+kind: MutatingWebhookConfiguration
+metadata:
+  name: disk-compatibility-webhook
+webhooks:
+- name: disk-compatibility.cast.ai
+  clientConfig:
+    service:
+      name: disk-compatibility-webhook
+      namespace: disk-compatibility-webhook
+      path: "/mutate"
+    # caBundle should be populated with the CA certificate (base64 encoded)
+    # You can generate this using:
+    # kubectl get secret disk-compatibility-webhook-certs -n disk-compatibility-webhook -o jsonpath='{.data.ca\.crt}'
+    caBundle: ""
+  rules:
+  - operations: ["CREATE"]
+    apiGroups: [""]
+    apiVersions: ["v1"]
+    resources: ["pods"]
+  admissionReviewVersions: ["v1"]
+  sideEffects: None
+  failurePolicy: Ignore
+  namespaceSelector:
+    matchExpressions:
+    - key: disk-compatibility-webhook
+      operator: NotIn
+      values:
+      - ignore

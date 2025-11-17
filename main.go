@@ -18,6 +18,8 @@ import (
 	"k8s.io/client-go/rest"
 	"k8s.io/klog/v2"
 	ctrl "sigs.k8s.io/controller-runtime"
+	"sigs.k8s.io/controller-runtime/pkg/log"
+	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 	"sigs.k8s.io/controller-runtime/pkg/metrics/server"
 )
 
@@ -67,6 +69,8 @@ func main() {
 }
 
 func run(cmd *cobra.Command, args []string) {
+	// Setup controller-runtime logger
+	log.SetLogger(zap.New(zap.UseDevMode(true)))
 
 	// Get configuration values from viper
 	port := viper.GetInt("port")

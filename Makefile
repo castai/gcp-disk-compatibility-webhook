@@ -8,6 +8,9 @@ build:
 docker-build:
 	docker build -t disk-compatibility-webhook:latest .
 
+kind-load: docker-build
+	kind load docker-image disk-compatibility-webhook -n kwok
+
 # Generate certificates and deploy to Kubernetes
 deploy: generate-certs
 	kubectl apply -f deploy/namespace.yaml

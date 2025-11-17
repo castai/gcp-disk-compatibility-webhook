@@ -23,4 +23,4 @@ webhooks:
           values: ["{{ .Release.Namespace }}"]
     admissionReviewVersions: ["v1"]
     sideEffects: None
-    failurePolicy: Ignore
+    failurePolicy: Fail

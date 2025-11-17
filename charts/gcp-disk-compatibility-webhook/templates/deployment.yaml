@@ -38,6 +38,15 @@ spec:
           {{- end }}
           image: "{{ .Values.image.repository }}:{{ .Values.image.tag | default .Chart.AppVersion }}"
           imagePullPolicy: {{ .Values.image.pullPolicy }}
+          env:
+          - name: WEBHOOK_WEBHOOK_NAME
+            value: {{ include "gcp-disk-compatibility-webhook.fullname" . }}
+          - name: WEBHOOK_SERVICE_NAME
+            value: {{ include "gcp-disk-compatibility-webhook.fullname" . }}
+          - name: WEBHOOK_SECRET_NAME
+            value: {{ include "gcp-disk-compatibility-webhook.fullname" . }}-certs
+          - name: WEBHOOK_NAMESPACE
+            value: {{ .Release.Namespace }}
           ports:
             - name: https
               containerPort: 8443

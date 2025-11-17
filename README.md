@@ -10,6 +10,14 @@ This webhook intercepts pod creation requests and:
 3. Determines appropriate nodeSelectors based on the storage class
 4. Mutates the pod to add the required nodeSelectors
 
+## Features
+
+- **Automatic Certificate Management**: Uses [cert-controller](https://github.com/open-policy-agent/cert-controller) to automatically generate and rotate TLS certificates
+- **Helm Deployment**: Simple installation and upgrades using Helm charts
+- **Flexible Configuration**: Configure via CLI flags or environment variables using Viper
+- **Comprehensive Testing**: Includes table-driven unit tests for all core functionality
+- **GCP Disk Type Support**: Supports all GCP disk types (pd-standard, pd-ssd, pd-balanced, pd-extreme, hyperdisk-balanced, hyperdisk-extreme, hyperdisk-throughput)
+
 ## Architecture
 
 The webhook consists of three main components:
@@ -30,64 +38,42 @@ Handles admission review requests:
 
 ### 3. HTTPS Server (`main.go`)
 Sets up an HTTPS server that:
-- Listens on port 8443
+- Uses Cobra for CLI commands and Viper for configuration
+- Supports both CLI flags and environment variables (with `WEBHOOK_` prefix)
+- Listens on port 8443 (configurable)
 - Handles `/mutate` endpoint for admission reviews
 - Provides `/health` endpoint for health checks
-- Uses TLS certificates from Kubernetes secrets
+- Uses TLS certificates automatically managed by cert-controller
 
 ## Prerequisites
 
-- Go 1.21 or later
 - Kubernetes cluster (1.16+)
 - kubectl configured to access your cluster
-- Docker (for building container images)
-- OpenSSL (for generating certificates)
+- Helm 3.x or later
 
 ## Installation
 
-### Step 1: Build the Docker Image
+### Deploy Using Helm
+
+The webhook includes automatic certificate management using [cert-controller](https://github.com/open-policy-agent/cert-controller), so no manual certificate generation is required.
+
+Deploy the webhook using Helm:
 
 ```bash
-make docker-build
+helm upgrade -i -n gcp-disk-compatibility-webhook gcp-disk-compatibility-webhook --create-namespace charts/gcp-disk-compatibility-webhook
 ```
 
-Or manually:
-```bash
-docker build -t disk-compatibility-webhook:latest .
-```
-
-If using a remote registry, tag and push:
-```bash
-docker tag disk-compatibility-webhook:latest your-registry/disk-compatibility-webhook:latest
-docker push your-registry/disk-compatibility-webhook:latest
-```
-
-### Step 2: Deploy to Kubernetes
-
-Generate certificates and deploy:
-```bash
-make deploy
-```
-
-Or manually:
-```bash
-# Generate certificates
-./deploy/generate-certs.sh
-
-# Apply manifests
-kubectl apply -f deploy/namespace.yaml
-kubectl apply -f deploy/rbac.yaml
-kubectl apply -f deploy/service.yaml
-kubectl apply -f deploy/deployment.yaml
-kubectl apply -f deploy/webhook.yaml
-```
-
-### Step 3: Verify Deployment
+### Verify Deployment
 
 Check that the webhook is running:
 ```bash
-kubectl get pods -n disk-compatibility-webhook
-kubectl logs -n disk-compatibility-webhook -l app=disk-compatibility-webhook
+kubectl get pods -n gcp-disk-compatibility-webhook
+kubectl logs -n gcp-disk-compatibility-webhook -l app.kubernetes.io/name=gcp-disk-compatibility-webhook
+```
+
+Check that certificates have been automatically generated:
+```bash
+kubectl get secret -n gcp-disk-compatibility-webhook disk-compatibility-webhook-certs
 ```
 
 ## Configuration
@@ -111,6 +97,20 @@ func GetNodeSelectorsForStorageClass(sc *storagev1.StorageClass) map[string]stri
 }
 ```
 
+### Helm Configuration
+
+You can customize the deployment by overriding values in the Helm chart:
+
+```bash
+helm upgrade -i -n gcp-disk-compatibility-webhook gcp-disk-compatibility-webhook \
+  --create-namespace \
+  --set image.tag=v1.0.0 \
+  --set resources.limits.memory=256Mi \
+  charts/gcp-disk-compatibility-webhook
+```
+
+See `charts/gcp-disk-compatibility-webhook/values.yaml` for all available configuration options.
+
 ### Namespace Filtering
 
 By default, the webhook applies to all namespaces except those labeled with `disk-compatibility-webhook: ignore`. To exclude a namespace:
@@ -119,23 +119,25 @@ By default, the webhook applies to all namespaces except those labeled with `dis
 kubectl label namespace my-namespace disk-compatibility-webhook=ignore
 ```
 
-### Webhook Failure Policy
-
-The webhook is configured with `failurePolicy: Ignore`, meaning pod creation will proceed even if the webhook fails. To make it strict, change this to `Fail` in `deploy/webhook.yaml`.
-
 ## RBAC Permissions
 
 The webhook requires the following permissions:
 - `get`, `list` on `persistentvolumeclaims`
 - `get`, `list` on `storageclasses`
 
-These are defined in `deploy/rbac.yaml`.
+These are automatically configured by the Helm chart.
 
 ## Testing
 
 ### Unit Tests
 ```bash
-make test
+go test ./...
+```
+
+Or test specific packages:
+```bash
+go test ./pkg/selector/...
+go test ./pkg/webhook/...
 ```
 
 ### Manual Testing
@@ -198,45 +200,52 @@ Check the MutatingWebhookConfiguration:
 kubectl get mutatingwebhookconfiguration disk-compatibility-webhook -o yaml
 ```
 
-Verify the caBundle is set correctly.
+Verify the caBundle is set correctly. The cert-controller automatically manages this.
 
 ### Certificate Issues
 
-Regenerate certificates:
+Certificates are automatically managed by cert-controller. If you encounter certificate issues:
+
+1. Check the cert-controller logs:
 ```bash
-make generate-certs
-kubectl rollout restart deployment disk-compatibility-webhook -n disk-compatibility-webhook
+kubectl logs -n gcp-disk-compatibility-webhook -l app.kubernetes.io/name=gcp-disk-compatibility-webhook -c manager
+```
+
+2. Verify the secret exists:
+```bash
+kubectl get secret -n gcp-disk-compatibility-webhook disk-compatibility-webhook-certs
+```
+
+3. Restart the webhook to regenerate certificates:
+```bash
+kubectl delete pod -n gcp-disk-compatibility-webhook -l app.kubernetes.io/name=gcp-disk-compatibility-webhook
 ```
 
 ### Check Webhook Logs
 
 ```bash
-kubectl logs -n disk-compatibility-webhook -l app=disk-compatibility-webhook -f
+kubectl logs -n gcp-disk-compatibility-webhook -l app.kubernetes.io/name=gcp-disk-compatibility-webhook -f
 ```
 
 ### Test Webhook Directly
 
 Port-forward to the webhook service:
 ```bash
-kubectl port-forward -n disk-compatibility-webhook svc/disk-compatibility-webhook 8443:443
+kubectl port-forward -n gcp-disk-compatibility-webhook svc/disk-compatibility-webhook 8443:443
 ```
 
 Send a test admission review request (requires valid client certificates).
 
 ## Cleanup
 
-Remove all webhook resources:
+Remove the webhook using Helm:
 ```bash
-make clean
+helm uninstall -n gcp-disk-compatibility-webhook gcp-disk-compatibility-webhook
 ```
 
-Or manually:
+To also remove the namespace:
 ```bash
-kubectl delete -f deploy/webhook.yaml
-kubectl delete -f deploy/deployment.yaml
-kubectl delete -f deploy/service.yaml
-kubectl delete -f deploy/rbac.yaml
-kubectl delete namespace disk-compatibility-webhook
+kubectl delete namespace gcp-disk-compatibility-webhook
 ```
 
 ## Development
@@ -245,32 +254,49 @@ kubectl delete namespace disk-compatibility-webhook
 
 ```
 .
-├── main.go                          # Entry point, HTTPS server
+├── main.go                                  # Entry point, HTTPS server with Cobra/Viper
 ├── pkg/
 │   ├── selector/
-│   │   └── selector.go             # StorageClass to nodeSelector mapping
+│   │   ├── selector.go                     # StorageClass to nodeSelector mapping
+│   │   └── selector_test.go               # Unit tests for selector
 │   └── webhook/
-│       └── handler.go              # Admission webhook logic
-├── deploy/
-│   ├── namespace.yaml              # Namespace definition
-│   ├── rbac.yaml                   # ServiceAccount, ClusterRole, ClusterRoleBinding
-│   ├── service.yaml                # Kubernetes Service
-│   ├── deployment.yaml             # Webhook deployment
-│   ├── webhook.yaml                # MutatingWebhookConfiguration
-│   └── generate-certs.sh           # Certificate generation script
-├── Dockerfile                       # Container image definition
-├── Makefile                         # Build and deployment shortcuts
-└── README.md                        # This file
+│       ├── handler.go                      # Admission webhook logic
+│       └── handler_test.go                 # Unit tests for webhook handler
+├── charts/
+│   └── gcp-disk-compatibility-webhook/    # Helm chart
+│       ├── Chart.yaml
+│       ├── values.yaml
+│       └── templates/
+├── Dockerfile                               # Container image definition
+└── README.md                                # This file
+```
+
+### Configuration via Environment Variables
+
+All CLI flags can be configured via environment variables with the `WEBHOOK_` prefix:
+
+```bash
+# Example: Set port via environment variable
+WEBHOOK_PORT=9090
+
+# Example: Disable certificate rotator
+WEBHOOK_DISABLE_CERT_ROTATOR=true
 ```
 
 ### Adding New Features
 
 1. Extend `GetNodeSelectorsForStorageClass` in `pkg/selector/selector.go`
-2. Add unit tests
-3. Rebuild and redeploy:
+2. Add unit tests in the corresponding `*_test.go` file
+3. Build and push a new image:
    ```bash
-   make docker-build
-   kubectl rollout restart deployment disk-compatibility-webhook -n disk-compatibility-webhook
+   docker build -t your-registry/gcp-disk-compatibility-webhook:v1.0.0 .
+   docker push your-registry/gcp-disk-compatibility-webhook:v1.0.0
+   ```
+4. Upgrade the Helm release:
+   ```bash
+   helm upgrade -i -n gcp-disk-compatibility-webhook gcp-disk-compatibility-webhook \
+     --set image.tag=v1.0.0 \
+     charts/gcp-disk-compatibility-webhook
    ```
 
 ## License

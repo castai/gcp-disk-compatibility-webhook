@@ -2,16 +2,18 @@ package main
 
 import (
 	"context"
-	"flag"
 	"fmt"
 	"net/http"
 	"os"
 	"os/signal"
+	"strings"
 	"syscall"
 	"time"
 
 	"github.com/cast-ai/gcp-disk-compatibility-webhook/pkg/webhook"
 	"github.com/open-policy-agent/cert-controller/pkg/rotator"
+	"github.com/spf13/cobra"
+	"github.com/spf13/viper"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/rest"
 	"k8s.io/klog/v2"
@@ -19,31 +21,62 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/metrics/server"
 )
 
-var (
-	port              int
-	certFile          string
-	keyFile           string
-	namespace         string
-	serviceName       string
-	secretName        string
-	webhookName       string
-	disableCertRotator bool
-)
+var rootCmd = &cobra.Command{
+	Use:   "gcp-disk-compatibility-webhook",
+	Short: "GCP Disk Compatibility Webhook Server",
+	Long:  "A Kubernetes mutating webhook that ensures GCP disk compatibility for workloads.",
+	Run:   run,
+}
 
 func init() {
-	flag.IntVar(&port, "port", 8443, "Webhook server port")
-	flag.StringVar(&certFile, "tls-cert-file", "/etc/webhook/certs/tls.crt", "Path to TLS certificate file")
-	flag.StringVar(&keyFile, "tls-key-file", "/etc/webhook/certs/tls.key", "Path to TLS key file")
-	flag.StringVar(&namespace, "namespace", "disk-compatibility-webhook", "Namespace where webhook is deployed")
-	flag.StringVar(&serviceName, "service-name", "disk-compatibility-webhook", "Name of the webhook service")
-	flag.StringVar(&secretName, "secret-name", "disk-compatibility-webhook-certs", "Name of the secret to store certificates")
-	flag.StringVar(&webhookName, "webhook-name", "disk-compatibility-webhook", "Name of the MutatingWebhookConfiguration")
-	flag.BoolVar(&disableCertRotator, "disable-cert-rotator", false, "Disable automatic certificate rotation")
+	cobra.OnInitialize(initConfig)
+
+	// Define flags
+	rootCmd.Flags().Int("port", 8443, "Webhook server port")
+	rootCmd.Flags().String("tls-cert-file", "/etc/webhook/certs/tls.crt", "Path to TLS certificate file")
+	rootCmd.Flags().String("tls-key-file", "/etc/webhook/certs/tls.key", "Path to TLS key file")
+	rootCmd.Flags().String("namespace", "disk-compatibility-webhook", "Namespace where webhook is deployed")
+	rootCmd.Flags().String("service-name", "disk-compatibility-webhook", "Name of the webhook service")
+	rootCmd.Flags().String("secret-name", "disk-compatibility-webhook-certs", "Name of the secret to store certificates")
+	rootCmd.Flags().String("webhook-name", "disk-compatibility-webhook", "Name of the MutatingWebhookConfiguration")
+	rootCmd.Flags().Bool("disable-cert-rotator", false, "Disable automatic certificate rotation")
+
+	// Bind flags to viper
+	_ = viper.BindPFlags(rootCmd.Flags())
+
+	// Initialize klog flags
 	klog.InitFlags(nil)
 }
 
+func initConfig() {
+	// Set environment variable prefix
+	viper.SetEnvPrefix("WEBHOOK")
+
+	// Replace hyphens with underscores in environment variables
+	viper.SetEnvKeyReplacer(strings.NewReplacer("-", "_"))
+
+	// Enable reading from environment variables
+	viper.AutomaticEnv()
+}
+
 func main() {
-	flag.Parse()
+	if err := rootCmd.Execute(); err != nil {
+		fmt.Fprintf(os.Stderr, "Error: %v\n", err)
+		os.Exit(1)
+	}
+}
+
+func run(cmd *cobra.Command, args []string) {
+
+	// Get configuration values from viper
+	port := viper.GetInt("port")
+	certFile := viper.GetString("tls-cert-file")
+	keyFile := viper.GetString("tls-key-file")
+	namespace := viper.GetString("namespace")
+	serviceName := viper.GetString("service-name")
+	secretName := viper.GetString("secret-name")
+	webhookName := viper.GetString("webhook-name")
+	disableCertRotator := viper.GetBool("disable-cert-rotator")
 
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()

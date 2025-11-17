@@ -13,6 +13,8 @@ spec:
       labels:
         app: my-database
     spec:
+      nodeSelector:
+        existing-selector: should-be-kept
       containers:
         - name: postgres
           image: postgres:15

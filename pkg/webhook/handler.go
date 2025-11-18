@@ -118,8 +118,14 @@ func (h *Handler) mutatePod(ar *admissionv1.AdmissionReview) *admissionv1.Admiss
 		}
 	}
 
+	// Use pod name or generateName for logging
+	podName := pod.Name
+	if podName == "" {
+		podName = pod.GenerateName
+	}
+
 	klog.Infof("AdmissionReview for Kind=%v, Namespace=%v Name=%v UID=%v",
-		req.Kind, req.Namespace, req.Name, req.UID)
+		req.Kind, req.Namespace, podName, req.UID)
 
 	// Get storage classes used by this pod's PVCs
 	nodeSelectors, err := h.getNodeSelectorsForPod(context.Background(), &pod, req.Namespace)
@@ -132,7 +138,7 @@ func (h *Handler) mutatePod(ar *admissionv1.AdmissionReview) *admissionv1.Admiss
 
 	// If no nodeSelectors are needed, allow the pod without mutation
 	if len(nodeSelectors) == 0 {
-		klog.Infof("No nodeSelectors needed for pod %s/%s", req.Namespace, pod.Name)
+		klog.Infof("No nodeSelectors needed for pod %s/%s", req.Namespace, podName)
 		return &admissionv1.AdmissionResponse{
 			Allowed: true,
 		}
@@ -169,7 +175,7 @@ func (h *Handler) mutatePod(ar *admissionv1.AdmissionReview) *admissionv1.Admiss
 		}
 	}
 
-	klog.Infof("Applying patches to pod %s/%s: %s", req.Namespace, pod.Name, string(patchBytes))
+	klog.Infof("Applying patches to pod %s/%s: %s", req.Namespace, podName, string(patchBytes))
 
 	return &admissionv1.AdmissionResponse{
 		Allowed: true,

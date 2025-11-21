@@ -68,6 +68,11 @@ func main() {
 	}
 }
 
+// ptr returns a pointer to the given value
+func ptr[T any](v T) *T {
+	return &v
+}
+
 func run(cmd *cobra.Command, args []string) {
 	// Setup controller-runtime logger
 	log.SetLogger(zap.New(zap.UseDevMode(true)))
@@ -100,8 +105,15 @@ func run(cmd *cobra.Command, args []string) {
 		klog.Info("Setting up certificate rotator")
 
 		// Create controller-runtime manager for cert rotation
+		// Leader election ensures only one pod manages certificates
+		// while all pods can serve the webhook
 		mgr, err := ctrl.NewManager(config, ctrl.Options{
-			LeaderElection: false,
+			LeaderElection:          true,
+			LeaderElectionID:        fmt.Sprintf("%s-cert-rotator", webhookName),
+			LeaderElectionNamespace: namespace,
+			LeaseDuration:           ptr(60 * time.Second),
+			RenewDeadline:           ptr(50 * time.Second),
+			RetryPeriod:             ptr(10 * time.Second),
 			Metrics: server.Options{
 				BindAddress: "0", // Disable metrics
 			},

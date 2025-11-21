@@ -8,17 +8,14 @@ kind: ClusterRole
 metadata:
   name: '{{ include "gcp-disk-compatibility-webhook.fullname" . }}'
 rules:
+  # Cluster-scoped permissions for webhook functionality
   - apiGroups: [""]
     resources: ["persistentvolumeclaims"]
     verbs: ["get", "list"]
   - apiGroups: ["storage.k8s.io"]
     resources: ["storageclasses"]
     verbs: ["get", "list"]
-  # Permissions required by cert-controller rotator
-  ### TODO: Move this to a namespaced Role
-  - apiGroups: [""]
-    resources: ["secrets"]
-    verbs: ["get", "list", "watch", "create", "update", "patch"]
+  # MutatingWebhookConfiguration is cluster-scoped
   - apiGroups: ["admissionregistration.k8s.io"]
     resources: ["mutatingwebhookconfigurations"]
     verbs: ["get", "list", "watch", "update", "patch"]
@@ -30,6 +27,35 @@ metadata:
 roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: ClusterRole
+  name: '{{ include "gcp-disk-compatibility-webhook.fullname" . }}'
+subjects:
+  - kind: ServiceAccount
+    name: '{{ include "gcp-disk-compatibility-webhook.fullname" . }}'
+    namespace: "{{ .Release.Namespace }}"
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: '{{ include "gcp-disk-compatibility-webhook.fullname" . }}'
+  namespace: "{{ .Release.Namespace }}"
+rules:
+  # Namespace-scoped permissions for cert-controller rotator
+  - apiGroups: [""]
+    resources: ["secrets"]
+    verbs: ["get", "list", "watch", "create", "update", "patch"]
+  # Namespace-scoped permissions for leader election
+  - apiGroups: ["coordination.k8s.io"]
+    resources: ["leases"]
+    verbs: ["get", "list", "watch", "create", "update", "patch"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: '{{ include "gcp-disk-compatibility-webhook.fullname" . }}'
+  namespace: "{{ .Release.Namespace }}"
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
   name: '{{ include "gcp-disk-compatibility-webhook.fullname" . }}'
 subjects:
   - kind: ServiceAccount

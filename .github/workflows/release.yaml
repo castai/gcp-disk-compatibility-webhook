@@ -11,7 +11,7 @@ env:
   CR_INDEX_PATH: "${{ github.workspace }}/.cr-index"
   CR_PACKAGE_PATH: "${{ github.workspace }}/.cr-release-packages"
   CR_TOOL_PATH: "${{ github.workspace }}/.cr-tool"
-  CHART_PATH: "${{ github.workspace }}/charts/${{ github.repository }}"
+  CHART_PATH: "${{ github.workspace }}/charts/gcp-disk-compatibility-webhook"
 
 jobs:
   release_docker:

@@ -8,7 +8,28 @@ The webhook intercepts pod creation requests, examines all PVCs attached to the 
 
 Certificates are automatically managed using cert-controller with leader-elected rotation across replicas.
 
+## Build from source
+
+```bash
+go build .
+```
+
+The binary serves `/mutate` and `/health` endpoints and is configured with flags (also settable via `WEBHOOK_`-prefixed environment variables):
+
+| Flag | Default | Description |
+|------|---------|-------------|
+| `--port` | `8443` | Webhook server port |
+| `--tls-cert-file` | `/etc/webhook/certs/tls.crt` | Path to TLS certificate file |
+| `--tls-key-file` | `/etc/webhook/certs/tls.key` | Path to TLS key file |
+| `--namespace` | `disk-compatibility-webhook` | Namespace where the webhook is deployed |
+| `--service-name` | `disk-compatibility-webhook` | Name of the webhook service |
+| `--secret-name` | `disk-compatibility-webhook-certs` | Name of the secret storing certificates |
+| `--webhook-name` | `disk-compatibility-webhook` | Name of the MutatingWebhookConfiguration |
+| `--disable-cert-rotator` | `false` | Disable automatic certificate rotation |
+
 ## Deploy with Helm
+
+A prebuilt chart is also published in CAST AI's public Helm chart repository ([castai/helm-charts-public](https://github.com/castai/helm-charts-public), chart `gcp-disk-compatibility-webhook`), or you can deploy the in-repo chart:
 
 ```bash
 helm upgrade -i gcp-disk-compatibility-webhook charts/gcp-disk-compatibility-webhook \
@@ -60,3 +81,7 @@ kubectl get mutatingwebhookconfiguration gcp-disk-compatibility-webhook -o yaml
 helm uninstall gcp-disk-compatibility-webhook -n gcp-disk-compatibility-webhook
 kubectl delete namespace gcp-disk-compatibility-webhook
 ```
+
+## License
+
+Distributed under the [MIT License](LICENSE).

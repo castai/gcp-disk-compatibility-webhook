@@ -1,14 +1,11 @@
 name: Chart test
 
-# Lint and really install the Helm chart into a kind cluster on every PR that
-# touches it — the only check that exercises RBAC, securityContext, cert
-# rotation and pod readiness end to end.
+# Runs on every PR: this check is required on main (ruleset), and a
+# path-filtered required check silently never runs on PRs that don't touch
+# charts/**, blocking their merge. ct itself skips quickly when no chart
+# changed, so the always-on cost is small.
 on:
   pull_request:
-    paths:
-      - "charts/**"
-      - "ct.yaml"
-      - ".github/workflows/chart.yaml"
   workflow_dispatch:
 
 permissions:

@@ -83,7 +83,7 @@ jobs:
       # finally commits the Chart.yaml bump back to main with the octo-sts token (a push
       # made with that token starts no workflow, so main.yaml does not rebuild for the bump).
       - name: Release chart
-        uses: castai/helm-charts/.github/actions/remote-release@f9cc3faad410ab5053609e68f61f28b4ade2ae41 # signs and publishes through publish-chart.yml
+        uses: castai/helm-charts/.github/actions/remote-release@84d1e2ea1ea89c5d7b648bb90c38116d8b4d08b8 # signs and publishes through publish-chart.yml
         with:
           chart-path: ${{ env.CHART_PATH }}
           # Take the chart version (and appVersion) from the release tag

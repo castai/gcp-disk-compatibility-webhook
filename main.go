@@ -1,3 +1,6 @@
+// Command gcp-disk-compatibility-webhook runs a Kubernetes mutating admission
+// webhook that pins pods to GCP nodes compatible with the disk types of the
+// volumes they mount.
 package main
 
 import (
@@ -73,7 +76,7 @@ func ptr[T any](v T) *T {
 	return &v
 }
 
-func run(cmd *cobra.Command, args []string) {
+func run(_ *cobra.Command, _ []string) {
 	// Setup controller-runtime logger
 	log.SetLogger(zap.New(zap.UseDevMode(true)))
 
@@ -184,7 +187,7 @@ func run(cmd *cobra.Command, args []string) {
 
 	// Setup HTTP handlers
 	http.HandleFunc("/mutate", handler.Handle)
-	http.HandleFunc("/health", func(w http.ResponseWriter, r *http.Request) {
+	http.HandleFunc("/health", func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusOK)
 		_, _ = w.Write([]byte("ok"))
 	})

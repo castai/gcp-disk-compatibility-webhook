@@ -1,3 +1,6 @@
+// Package selector derives node selector labels from Kubernetes storage
+// classes, mapping GCP disk types to the CAST AI scheduling labels used to
+// pin pods to compatible nodes.
 package selector
 
 import (

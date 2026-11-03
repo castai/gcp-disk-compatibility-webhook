@@ -450,14 +450,12 @@ func TestGetNodeSelectorsForPod(t *testing.T) {
 			}
 
 			// Call the function
-			result, err := h.getNodeSelectorsForPod(context.Background(), tt.pod, tt.namespace)
+			result := h.getNodeSelectorsForPod(context.Background(), tt.pod, tt.namespace)
 
-			// Check error expectation
-			if tt.expectError && err == nil {
-				t.Errorf("expected error but got none")
-			}
-			if !tt.expectError && err != nil {
-				t.Errorf("unexpected error: %v", err)
+			// getNodeSelectorsForPod never returns an error (lookup failures are
+			// logged and skipped), so expectError is false for every case.
+			if tt.expectError {
+				t.Errorf("expected error but the function cannot return one")
 			}
 
 			// Check result

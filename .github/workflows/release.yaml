@@ -86,4 +86,11 @@ jobs:
         uses: castai/helm-charts/.github/actions/remote-release@f9cc3faad410ab5053609e68f61f28b4ade2ae41 # signs and publishes through publish-chart.yml
         with:
           chart-path: ${{ env.CHART_PATH }}
+          # Take the chart version (and appVersion) from the release tag
+          # (vX.Y.Z -> X.Y.Z) instead of patch-bumping the checked-in
+          # Chart.yaml, so the published chart always references the image
+          # tag that this release actually pushed. Default (false) caused
+          # chart 0.2.5 to be published with appVersion v0.2.5 while the
+          # release image was v0.3.0.
+          chart-version-from-tag: "true"
           source-repo-token: ${{ steps.bump_token.outputs.token }}

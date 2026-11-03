@@ -17,11 +17,14 @@ go build .
 Or use the Makefile helpers:
 
 ```bash
-make help        # list available targets
-make build       # build the binary into bin/webhook
-make test        # unit tests with the race detector
-make lint        # golangci-lint (downloads the pinned version from .golangci-lint-version)
-make lint-fix    # golangci-lint with automatic fixes
+make help         # list available targets
+make build        # build the linux/amd64 binary as ./webhook (container-ready)
+make build-local  # build a native binary into bin/webhook
+make docker-build # build the Docker image
+make kind-load    # load the image into the local kind cluster (kwok)
+make test         # unit tests with the race detector
+make lint         # golangci-lint (downloads the pinned version from .golangci-lint-version)
+make lint-fix     # golangci-lint with automatic fixes
 make vet fmt tidy
 ```
 

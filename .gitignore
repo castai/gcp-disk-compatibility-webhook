@@ -4,8 +4,9 @@
 *.so
 *.dylib
 
-# Local build output (make build, golangci-lint install target)
+# Local build output (make build, make build-local, golangci-lint install target)
 bin/
+/webhook
 
 # Test binary, built with `go test -c`
 *.test

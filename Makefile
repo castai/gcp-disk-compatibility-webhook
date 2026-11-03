@@ -7,15 +7,30 @@ all: build
 
 .PHONY: help
 help: ## Display this help.
-	@grep -E '^[a-zA-Z_-]+:.*?## ' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*?## "}; {printf "\033[36m%-12s\033[0m %s\n", $$1, $$2}'
+	@grep -E '^[a-zA-Z_-]+:.*?## ' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*?## "}; {printf "\033[36m%-16s\033[0m %s\n", $$1, $$2}'
 
+# Build the webhook binary (linux/amd64, suitable for containers/kind).
 .PHONY: build
-build: ## Build the webhook binary into bin/.
-	go build -o bin/webhook .
+build: ## Build the webhook binary (linux/amd64) as ./webhook.
+	CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -a -o webhook main.go
+
+# Native host build, handy for quick local runs/tests.
+.PHONY: build-local
+build-local: ## Build a native binary into bin/webhook.
+	go build -o $(LOCALBIN)/webhook .
+
+# Build the Docker image
+.PHONY: docker-build
+docker-build: ## Build the Docker image (disk-compatibility-webhook:latest).
+	docker build -t disk-compatibility-webhook:latest .
+
+.PHONY: kind-load
+kind-load: docker-build ## Load the image into the local kind cluster (kwok).
+	kind load docker-image disk-compatibility-webhook -n kwok
 
 .PHONY: test
-test: ## Run unit tests with the race detector.
-	go test -race ./...
+test: ## Run unit tests (race detector).
+	go test -v -race ./...
 
 .PHONY: vet
 vet: ## Run go vet.
@@ -37,9 +52,11 @@ lint-fix: $(GOLANGCI_LINT) ## Run golangci-lint with automatic fixes.
 tidy: ## Tidy go.mod / go.sum.
 	go mod tidy
 
+# Remove build artifacts. (The old kubectl teardown targets were dropped
+# upstream together with deploy/ — a0baad8; deployment now goes through Helm.)
 .PHONY: clean
-clean: ## Remove build artifacts.
-	rm -rf $(LOCALBIN)
+clean: ## Remove build artifacts (./webhook and bin/).
+	rm -rf webhook $(LOCALBIN)
 
 $(LOCALBIN):
 	mkdir -p $(LOCALBIN)

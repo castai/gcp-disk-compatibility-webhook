@@ -4,12 +4,13 @@ metadata:
   name: '{{ include "gcp-disk-compatibility-webhook.fullname" . }}'
 rules:
   # Cluster-scoped permissions for webhook functionality
+  # (the webhook only Gets PVCs/StorageClasses by name; no list needed)
   - apiGroups: [""]
     resources: ["persistentvolumeclaims"]
-    verbs: ["get", "list"]
+    verbs: ["get"]
   - apiGroups: ["storage.k8s.io"]
     resources: ["storageclasses"]
-    verbs: ["get", "list"]
+    verbs: ["get"]
   # MutatingWebhookConfiguration is cluster-scoped
   - apiGroups: ["admissionregistration.k8s.io"]
     resources: ["mutatingwebhookconfigurations"]

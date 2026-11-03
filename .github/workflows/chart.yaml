@@ -1,0 +1,34 @@
+name: Chart test
+
+# Lint and really install the Helm chart into a kind cluster on every PR that
+# touches it — the only check that exercises RBAC, securityContext, cert
+# rotation and pod readiness end to end.
+on:
+  pull_request:
+    paths:
+      - "charts/**"
+      - "ct.yaml"
+      - ".github/workflows/chart.yaml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  chart-test:
+    name: Lint and install chart
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v5
+        with:
+          fetch-depth: 0 # chart-testing diffs against the target branch
+
+      - name: Set up kind cluster
+        uses: helm/kind-action@v1.15.1
+
+      - name: Run chart-testing (lint and install)
+        uses: helm/chart-testing-action@v2.9.0
+        with:
+          command: lint-and-install
+          config: ct.yaml

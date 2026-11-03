@@ -14,6 +14,17 @@ Certificates are automatically managed using cert-controller with leader-elected
 go build .
 ```
 
+Or use the Makefile helpers:
+
+```bash
+make help        # list available targets
+make build       # build the binary into bin/webhook
+make test        # unit tests with the race detector
+make lint        # golangci-lint (downloads the pinned version from .golangci-lint-version)
+make lint-fix    # golangci-lint with automatic fixes
+make vet fmt tidy
+```
+
 The binary serves `/mutate` and `/health` endpoints and is configured with flags (also settable via `WEBHOOK_`-prefixed environment variables):
 
 | Flag | Default | Description |
@@ -59,9 +70,12 @@ kubectl label namespace my-namespace disk-compatibility-webhook=ignore
 ## Testing
 
 Run unit tests:
+
 ```bash
-go test ./...
+make test
 ```
+
+CI runs build, tests (race detector), and golangci-lint on every pull request (`.github/workflows/build.yaml`).
 
 ## Troubleshooting
 

@@ -4,6 +4,9 @@
 *.so
 *.dylib
 
+# Local build output (make build, golangci-lint install target)
+bin/
+
 # Test binary, built with `go test -c`
 *.test
 

@@ -1,3 +1,6 @@
+// Package webhook implements the mutating admission webhook server: TLS
+// serving, request validation, and the pod-mutation logic that injects node
+// selectors for GCP disk compatibility.
 package webhook
 
 import (
@@ -16,10 +19,13 @@ import (
 	"k8s.io/klog/v2"
 )
 
+// Handler serves admission reviews and mutates pods based on the storage
+// classes of the volumes they mount.
 type Handler struct {
 	clientset kubernetes.Interface
 }
 
+// NewHandler builds a Handler using the in-cluster Kubernetes config.
 func NewHandler() (*Handler, error) {
 	config, err := rest.InClusterConfig()
 	if err != nil {
@@ -128,13 +134,7 @@ func (h *Handler) mutatePod(ar *admissionv1.AdmissionReview) *admissionv1.Admiss
 		req.Kind, req.Namespace, podName, req.UID)
 
 	// Get storage classes used by this pod's PVCs
-	nodeSelectors, err := h.getNodeSelectorsForPod(context.Background(), &pod, req.Namespace)
-	if err != nil {
-		klog.Errorf("Failed to get node selectors: %v", err)
-		return &admissionv1.AdmissionResponse{
-			Allowed: true, // Allow the pod even if we fail to get selectors
-		}
-	}
+	nodeSelectors := h.getNodeSelectorsForPod(context.Background(), &pod, req.Namespace)
 
 	// If no nodeSelectors are needed, allow the pod without mutation
 	if len(nodeSelectors) == 0 {
@@ -188,8 +188,9 @@ func (h *Handler) mutatePod(ar *admissionv1.AdmissionReview) *admissionv1.Admiss
 }
 
 // getNodeSelectorsForPod retrieves the storage classes used by the pod's PVCs
-// and returns the appropriate nodeSelectors
-func (h *Handler) getNodeSelectorsForPod(ctx context.Context, pod *corev1.Pod, namespace string) (map[string]string, error) {
+// and returns the appropriate nodeSelectors. Lookup failures are logged and
+// skipped rather than returned as errors, so the pod is never rejected.
+func (h *Handler) getNodeSelectorsForPod(ctx context.Context, pod *corev1.Pod, namespace string) map[string]string {
 	allNodeSelectors := make(map[string]string)
 
 	// Iterate through all volumes in the pod
@@ -234,7 +235,7 @@ func (h *Handler) getNodeSelectorsForPod(ctx context.Context, pod *corev1.Pod, n
 		klog.Infof("Storage class %s requires nodeSelectors: %v", storageClassName, nodeSelectors)
 	}
 
-	return allNodeSelectors, nil
+	return allNodeSelectors
 }
 
 // escapeJSONPointer escapes a string for use in a JSON pointer path

@@ -1,0 +1,25 @@
+version: "2"
+
+linters:
+  enable:
+    - copyloopvar
+    - misspell
+    - revive
+    - unconvert
+    - unparam
+  exclusions:
+    generated: lax
+    rules:
+      # Test files repeat fixture/setup boilerplate that lint noise
+      # isn't worth deduplicating; unchecked test errors are acceptable.
+      - linters:
+          - errcheck
+          - unparam
+        path: _test\.go
+
+formatters:
+  enable:
+    - gofmt
+    - goimports
+  exclusions:
+    generated: lax

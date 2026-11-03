@@ -125,9 +125,9 @@ func TestGetNodeSelectorsForStorageClass(t *testing.T) {
 			name: "type parameter with additional parameters",
 			sc: &storagev1.StorageClass{
 				Parameters: map[string]string{
-					"type":            "pd-ssd",
+					"type":             "pd-ssd",
 					"replication-type": "regional-pd",
-					"fstype":          "ext4",
+					"fstype":           "ext4",
 				},
 			},
 			expected: map[string]string{

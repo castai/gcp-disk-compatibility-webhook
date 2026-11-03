@@ -28,11 +28,13 @@ COPY pkg/ pkg/
 RUN go build -a -o webhook main.go
 
 # Runtime stage
-FROM gcr.io/distroless/static:nonroot
+# cgr.dev/chainguard/static: minimal (no shell, no package manager), runs as
+# uid/gid 65532 (nonroot) by default, ships ca-certificates.
+FROM cgr.dev/chainguard/static:latest
 
 WORKDIR /
 
-COPY --from=builder /workspace/webhook .
+COPY --from=builder /workspace/webhook /webhook
 
 USER 65532:65532
 

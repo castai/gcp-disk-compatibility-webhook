@@ -67,10 +67,19 @@ spec:
             - name: webhook-certs
               mountPath: /etc/webhook/certs
               readOnly: true
+            # Writable scratch for anything that needs /tmp despite the
+            # read-only root filesystem; the webhook itself writes nothing.
+            - name: tmp
+              mountPath: /tmp
+              readOnly: false
           {{- with .Values.volumeMounts }}
             {{- toYaml . | nindent 12 }}
           {{- end }}
       volumes:
+      # Read-only root filesystem scratch space (see volumeMounts: tmp).
+      - name: tmp
+        emptyDir:
+          sizeLimit: 1Mi
       - name: webhook-certs
         secret:
           secretName: {{ include "gcp-disk-compatibility-webhook.fullname" . }}-certs

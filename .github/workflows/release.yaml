@@ -44,12 +44,12 @@ jobs:
           push: true
           file: ./Dockerfile
           platforms: linux/amd64,linux/arm64
+          # NOTE: no owner prefix in the tags below — github.repository already
+          # contains it. The previous hardcoded 'ghcr.io/castai/${{ github.repository }}'
+          # produced ghcr.io/castai/castai/... (a private stray package), so
+          # release tags like v0.3.0 never existed on the real package that
+          # main.yaml and consumers use.
           tags: |
-            # NOTE: no owner prefix here — github.repository already contains
-            # it. The previous hardcoded 'ghcr.io/castai/${{ github.repository }}'
-            # produced ghcr.io/castai/castai/... (a private stray package), so
-            # release tags like v0.3.0 never existed on the real package that
-            # main.yaml and consumers use.
             ghcr.io/${{ github.repository }}:${{ env.RELEASE_TAG }}
             ghcr.io/${{ github.repository }}:latest
           build-args: |

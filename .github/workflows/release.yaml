@@ -78,10 +78,12 @@ jobs:
           scope: castai/gcp-disk-compatibility-webhook
           identity: chart-release-bump
 
-      # Bumps Chart.yaml, pushes the chart signed to this repository's GHCR namespace, then
-      # castai/helm-charts publish-chart.yml verifies it and publishes the release + index.yaml;
-      # finally commits the Chart.yaml bump back to main with the octo-sts token (a push
-      # made with that token starts no workflow, so main.yaml does not rebuild for the bump).
+      # Bumps Chart.yaml (chart-version-from-tag) and publishes the chart signed to this
+      # repository's GHCR namespace; castai/helm-charts publish-chart.yml verifies it and
+      # publishes the release + index.yaml. The Chart.yaml bump on main is landed separately
+      # (see the Open chart bump PR step): direct pushes to main are blocked by the branch
+      # ruleset, so the bump goes through a regular PR that CI validates and auto-merges
+      # after review.
       - name: Release chart
         uses: castai/helm-charts/.github/actions/remote-release@f9cc3faad410ab5053609e68f61f28b4ade2ae41 # signs and publishes through publish-chart.yml
         with:
@@ -93,4 +95,35 @@ jobs:
           # chart 0.2.5 to be published with appVersion v0.2.5 while the
           # release image was v0.3.0.
           chart-version-from-tag: "true"
-          source-repo-token: ${{ steps.bump_token.outputs.token }}
+          # The action's direct bump push to main is declined by the main
+          # branch ruleset (the github-actions App cannot be bypass-listed,
+          # and the octo-sts Integration bypass does not apply to git
+          # pushes), so the bump is landed via a PR in the next step.
+          commit-chart-changes: "false"
+
+      # The action bumped Chart.yaml in the working tree (chart-version-from-tag).
+      # Push it to a branch with the octo-sts token and open an auto-merge PR:
+      # a branch/PR push with the App token triggers the required CI checks
+      # (GITHUB_TOKEN-created PRs would not), and the PR merges once checks pass
+      # and a maintainer approves.
+      - name: Open chart bump PR
+        env:
+          GH_TOKEN: ${{ steps.bump_token.outputs.token }}
+          CHART_PATH: ${{ env.CHART_PATH }}
+        run: |
+          set -euo pipefail
+          if git diff --quiet -- "${CHART_PATH}/Chart.yaml"; then
+            echo "Chart.yaml unchanged — nothing to bump."
+            exit 0
+          fi
+          BRANCH="chart-bump/${GITHUB_REF_NAME}"
+          git config user.name "${GITHUB_ACTOR}"
+          git config user.email "${GITHUB_ACTOR}@users.noreply.github.com"
+          git checkout -b "${BRANCH}"
+          git add "${CHART_PATH}/Chart.yaml"
+          git commit -m "[Release] Update gcp-disk-compatibility-webhook Chart.yaml to ${GITHUB_REF_NAME}"
+          git push origin "${BRANCH}"
+          gh pr create --base main --head "${BRANCH}" \
+            --title "[Release] Update gcp-disk-compatibility-webhook Chart.yaml to ${GITHUB_REF_NAME}" \
+            --body "Automated Chart.yaml version bump for release ${GITHUB_REF_NAME} (chart version and appVersion derive from the release tag)."
+          gh pr merge --auto --squash

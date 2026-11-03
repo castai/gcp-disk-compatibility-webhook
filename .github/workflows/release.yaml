@@ -57,8 +57,8 @@ jobs:
     runs-on: ubuntu-latest
     needs: release_docker
     permissions:
-      contents: write # the Chart.yaml commit back to main (main is not protected)
-      id-token: write # keyless chart signature; token for castai/helm-charts
+      contents: write # GHCR chart push and GitHub API access via GITHUB_TOKEN
+      id-token: write # keyless chart signature; OIDC for octo-sts
       packages: write # push to ghcr.io/castai/gcp-disk-compatibility-webhook/helm-charts/<chart>
     steps:
       - name: Checkout
@@ -66,11 +66,24 @@ jobs:
         with:
           fetch-depth: "0"
 
+      # The Chart.yaml bump is pushed back to main with an octo-sts[bot] App token,
+      # not GITHUB_TOKEN: the main branch ruleset requires pull requests and the
+      # built-in github-actions app cannot be bypass-listed on rulesets, while
+      # octo-sts[bot] is. Trust policy: .github/chainguard/chart-release-bump.sts.yaml
+      # (release tags of this workflow only, contents: write).
+      - name: Get a token to push the chart bump
+        id: bump_token
+        uses: octo-sts/action@f603d3be9d8dd9871a265776e625a27b00effe05 # v1.1.1
+        with:
+          scope: castai/gcp-disk-compatibility-webhook
+          identity: chart-release-bump
+
       # Bumps Chart.yaml, pushes the chart signed to this repository's GHCR namespace, then
       # castai/helm-charts publish-chart.yml verifies it and publishes the release + index.yaml;
-      # finally commits the Chart.yaml bump back to main with the job's GITHUB_TOKEN (a push
+      # finally commits the Chart.yaml bump back to main with the octo-sts token (a push
       # made with that token starts no workflow, so main.yaml does not rebuild for the bump).
       - name: Release chart
         uses: castai/helm-charts/.github/actions/remote-release@f9cc3faad410ab5053609e68f61f28b4ade2ae41 # signs and publishes through publish-chart.yml
         with:
           chart-path: ${{ env.CHART_PATH }}
+          source-repo-token: ${{ steps.bump_token.outputs.token }}

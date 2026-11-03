@@ -45,8 +45,13 @@ jobs:
           file: ./Dockerfile
           platforms: linux/amd64,linux/arm64
           tags: |
-            ghcr.io/castai/${{ github.repository }}:${{ env.RELEASE_TAG }}
-            ghcr.io/castai/${{ github.repository }}:latest
+            # NOTE: no owner prefix here — github.repository already contains
+            # it. The previous hardcoded 'ghcr.io/castai/${{ github.repository }}'
+            # produced ghcr.io/castai/castai/... (a private stray package), so
+            # release tags like v0.3.0 never existed on the real package that
+            # main.yaml and consumers use.
+            ghcr.io/${{ github.repository }}:${{ env.RELEASE_TAG }}
+            ghcr.io/${{ github.repository }}:latest
           build-args: |
             CAST_COMMIT_SHA=${{ github.sha }}
             CAST_COMMIT_REF=${{ github.ref }}
